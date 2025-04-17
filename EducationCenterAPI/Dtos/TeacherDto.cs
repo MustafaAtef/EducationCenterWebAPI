@@ -40,7 +40,6 @@ public class UpdateTeacherDto
     public ICollection<int> Subjects { get; set; }
 }
 
-
 public class TeacherDto
 {
     public int Id { get; set; }

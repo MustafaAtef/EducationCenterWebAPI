@@ -21,6 +21,8 @@ public class PagedList<T>
     }
     public static async Task<PagedList<T>> Create(IQueryable<T> query, int currentPage, int pageSize)
     {
+        if (currentPage < 1) currentPage = 1;
+        if (pageSize < 1) pageSize = 10;
         var tc = await query.CountAsync();
         var data = await query.Skip((currentPage - 1) * pageSize).Take(pageSize).ToListAsync();
         return new PagedList<T>(tc, pageSize, currentPage, data);

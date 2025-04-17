@@ -43,6 +43,35 @@ namespace EducationCenterAPI.Controllers
         {
             return await _teachersService.GetTeacherByIdAsync(id);
         }
+
+        [HttpPost("{teacherId}/salaries")]
+        public async Task<ActionResult> PayTeacherSalary(int teacherId, PayTeacherSalaryDto payTeacherSalaryDto)
+        {
+            payTeacherSalaryDto.TeacherId = teacherId;
+            await _teachersService.PayTeacherSalaryAsync(payTeacherSalaryDto);
+            return Ok();
+        }
+
+        [HttpGet("{teacherId}/salaries")]
+        public async Task<ActionResult<PagedList<TeacherSalaryDto>>> GetTeacherSalaries(int teacherId, int page = 1, int pageSize = 10)
+        {
+            return await _teachersService.GetTeacherSalariesAsync(teacherId, page, pageSize);
+        }
+
+        [HttpPut("{teacherId}/salaries/{id}")]
+        public async Task<ActionResult> UpdateTeacherSalary(int teacherId, int id, UpdateTeacherSalaryDto updateTeacherSalaryDto)
+        {
+            updateTeacherSalaryDto.TeacherId = teacherId;
+            updateTeacherSalaryDto.Id = id;
+            await _teachersService.UpdateTeacherSalaryAsync(updateTeacherSalaryDto);
+            return Ok();
+        }
+
+        [HttpGet("salaries")]
+        public async Task<ActionResult<PagedList<TeacherSalaryDto>>> GetTeachersSalaries(int page = 1, int pageSize = 10, string? sortBy = null, string? sortOrder = null, string? fromDate = null, string? toDate = null)
+        {
+            return await _teachersService.GetTeachersSalariesAsync(page, pageSize, sortBy, sortOrder, fromDate, toDate);
+        }
     }
 
 }

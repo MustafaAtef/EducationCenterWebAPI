@@ -44,5 +44,33 @@ namespace EducationCenterAPI.Controllers
             return await _studentsService.GetStudentByIdAsync(id);
         }
 
+        [HttpPost("{studentId}/fees")]
+        public async Task<ActionResult> PayStudentFees(int studentId, PayStudentFeesDto payStudentFeesDto)
+        {
+            payStudentFeesDto.StudentId = studentId;
+            await _studentsService.PayStudentFeesAsync(payStudentFeesDto);
+            return Ok();
+        }
+
+        [HttpGet("fees")]
+        public async Task<ActionResult<PagedList<StudentFeeDto>>> GetStudentsFees(int page, int pageSize, string? sortBy, string? sortOrder, string? fromDate, string? toDate)
+        {
+            return await _studentsService.GetStudentsFeesAsync(page, pageSize, sortBy, sortOrder, fromDate, toDate);
+        }
+
+        [HttpGet("{studentId}/fees")]
+        public async Task<ActionResult<PagedList<StudentFeeDto>>> GetStudentFees(int studentId, int page, int pageSize)
+        {
+            return await _studentsService.GetStudentFeesAsync(studentId, page, pageSize);
+        }
+
+        [HttpPut("{studentId}/fees/{expenseId}")]
+        public async Task<ActionResult> UpdateStudentFees(int studentId, int expenseId, UpdateStudentFeesDto updateStudentFeesDto)
+        {
+            updateStudentFeesDto.StudentId = studentId;
+            updateStudentFeesDto.Id = expenseId;
+            await _studentsService.UpdateStudentFeesAsync(updateStudentFeesDto);
+            return Ok();
+        }
     }
 }

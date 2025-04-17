@@ -22,6 +22,7 @@ builder.Services.AddTransient<ITeachersService, TeachersService>();
 builder.Services.AddTransient<IStudentsService, StudentsService>();
 builder.Services.AddTransient<IClassesService, ClassesService>();
 builder.Services.AddTransient<IAttendanceService, AttendanceService>();
+builder.Services.AddTransient<IExpenseService, ExpenseService>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
 var jwtOptions = builder.Configuration.GetSection("jwt").Get<JwtOptions>();

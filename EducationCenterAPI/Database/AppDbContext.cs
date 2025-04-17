@@ -76,6 +76,7 @@ namespace EducationCenterAPI.Database
                 builder.HasOne(sst => sst.SubjectTeacher)
                     .WithMany()
                     .HasForeignKey(sst => sst.SubjectTeacherId);
+
             });
             modelBuilder.Entity<Class>(builder =>
             {
@@ -89,9 +90,28 @@ namespace EducationCenterAPI.Database
             modelBuilder.Entity<Attendance>(builder =>
             {
                 builder.HasKey(a => new { a.StudentId, a.ClassId });
+                builder.Property(a => a.RegisteredAt).HasDefaultValueSql("getdate()");
+
             });
             modelBuilder.Entity<ClassStudentDto>(e => { e.HasNoKey().ToView(null); });
             modelBuilder.Entity<AttendanceStatisticsDto>(e => { e.HasNoKey().ToView(null); });
+            modelBuilder.Entity<StudentFee>(builder =>
+            {
+                builder.HasKey(sf => new { sf.Months, sf.StudentId });
+                builder.Property(sf => sf.Notes).HasColumnType("nvarchar(250)");
+                builder.Property(sf => sf.PaidAt).HasDefaultValueSql("getdate()");
+            });
+            modelBuilder.Entity<TeacherSalary>(builder =>
+            {
+                builder.HasKey(ts => new { ts.Months, ts.TeacherId });
+                builder.Property(ts => ts.Notes).HasColumnType("nvarchar(250)");
+                builder.Property(ts => ts.PaidAt).HasDefaultValueSql("getdate()");
+            });
+            modelBuilder.Entity<OtherExpense>(builder =>
+            {
+                builder.Property(e => e.Notes).HasColumnType("nvarchar(250)");
+                builder.Property(e => e.PaidAt).HasDefaultValueSql("getdate()");
+            });
         }
 
         public DbSet<Grade> Grades { get; set; }
@@ -105,6 +125,10 @@ namespace EducationCenterAPI.Database
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<ClassStudentDto> classStudentDto { get; set; }
         public DbSet<AttendanceStatisticsDto> AttendanceStatisticsDto { get; set; }
+        public DbSet<Expense> Expenses { get; set; }
+        public DbSet<StudentFee> StudentFees { get; set; }
+        public DbSet<TeacherSalary> TeacherSalaries { get; set; }
+        public DbSet<OtherExpense> OtherExpenses { get; set; }
     }
 
     public static class AppDbContextExtensions

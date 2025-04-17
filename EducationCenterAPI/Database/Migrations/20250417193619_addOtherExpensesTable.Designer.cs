@@ -4,6 +4,7 @@ using EducationCenterAPI.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EducationCenterAPI.Database.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250417193619_addOtherExpensesTable")]
+    partial class addOtherExpensesTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,14 +89,14 @@ namespace EducationCenterAPI.Database.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("ExpenseTypeId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Paid")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("PaidAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -155,17 +158,17 @@ namespace EducationCenterAPI.Database.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
                     b.Property<int>("ExpenseId")
                         .HasColumnType("int");
 
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("nvarchar(250)");
-
-                    b.Property<DateTime>("PaidAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("getdate()");
 
                     b.HasKey("Id");
 
@@ -223,6 +226,11 @@ namespace EducationCenterAPI.Database.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
                     b.Property<int>("ExpenseId")
                         .HasColumnType("int");
 
@@ -232,11 +240,6 @@ namespace EducationCenterAPI.Database.Migrations
 
                     b.Property<decimal>("Paid")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("PaidAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("getdate()");
 
                     b.HasKey("Months", "StudentId");
 
@@ -365,6 +368,11 @@ namespace EducationCenterAPI.Database.Migrations
                     b.Property<int>("TeacherId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("getdate()");
+
                     b.Property<int>("ExpenseId")
                         .HasColumnType("int");
 
@@ -374,11 +382,6 @@ namespace EducationCenterAPI.Database.Migrations
 
                     b.Property<decimal>("Paid")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("PaidAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("getdate()");
 
                     b.Property<decimal>("Salary")
                         .HasColumnType("decimal(18,2)");
