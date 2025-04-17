@@ -15,11 +15,5 @@ namespace EducationCenterAPI.Controllers
             _attendanceService = attendanceService;
         }
 
-        [HttpGet("class/{classId}")]
-        public async Task<ActionResult<IEnumerable<ClassStudentDto>>> GetAttendance(int classId)
-        {
-            var classStudents = await _attendanceService.GetAttendance(classId);
-            return Ok(classStudents);
-        }
     }
 }

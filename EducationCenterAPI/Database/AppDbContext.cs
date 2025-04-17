@@ -91,6 +91,7 @@ namespace EducationCenterAPI.Database
                 builder.HasKey(a => new { a.StudentId, a.ClassId });
             });
             modelBuilder.Entity<ClassStudentDto>(e => { e.HasNoKey().ToView(null); });
+            modelBuilder.Entity<AttendanceStatisticsDto>(e => { e.HasNoKey().ToView(null); });
         }
 
         public DbSet<Grade> Grades { get; set; }
@@ -103,6 +104,7 @@ namespace EducationCenterAPI.Database
         public DbSet<Class> Classes { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<ClassStudentDto> classStudentDto { get; set; }
+        public DbSet<AttendanceStatisticsDto> AttendanceStatisticsDto { get; set; }
     }
 
     public static class AppDbContextExtensions

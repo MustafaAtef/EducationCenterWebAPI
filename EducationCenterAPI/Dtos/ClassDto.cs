@@ -65,7 +65,7 @@ public class ClassDto
     public DateOnly Date { get; set; }
     public string FromTime { get; set; }
     public string ToTime { get; set; }
-    public AttendanceRegistered AttendanceRegistered { get; set; }
+    public int AttendanceRegistered { get; set; }
 }
 
 public class ClassStudentDto
@@ -77,6 +77,30 @@ public class ClassStudentDto
     public string Subject { get; set; }
     public string Teacher { get; set; }
     public int IsPresent { get; set; }
+}
+
+public class AttendanceStatisticsDto
+{
+    public int TotalStudents { get; set; }
+    public int Presents { get; set; }
+    public int Absents { get; set; }
+}
+
+public class ClassAttendanceStatisticsDto
+{
+    public int Id { get; set; }
+    public int GradeId { get; set; }
+    public string? Grade { get; set; }
+    public int SubjectTeacherId { get; set; }
+    public string? Subject { get; set; }
+    public string? Teacher { get; set; }
+    public DateOnly Date { get; set; }
+    public string? FromTime { get; set; }
+    public string? ToTime { get; set; }
+    public int AttendanceRegistered { get; set; }
+    public int TotalStudents { get; set; }
+    public int Presents { get; set; }
+    public int Absents { get; set; }
 }
 public enum ClassRepeation
 {

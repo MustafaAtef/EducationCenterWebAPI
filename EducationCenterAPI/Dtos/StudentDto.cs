@@ -43,6 +43,16 @@ public class UpdateStudentDto
     public ICollection<int> SubjectIds { get; set; }
 }
 
+public class RegisterStudentAttendanceAsyncDto
+{
+    [BindNever]
+    public int ClassId { get; set; }
+    [Required]
+    public int? StudentId { get; set; }
+    [Required]
+    public int? IsPresent { get; set; }
+}
+
 public class StudentDto
 {
     public int Id { get; set; }

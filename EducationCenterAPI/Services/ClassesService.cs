@@ -55,7 +55,7 @@ public class ClassesService : IClassesService
         await _dbContext.SaveChangesAsync();
     }
 
-    public async Task<IEnumerable<ClassDto>> GetAllClasses(int weekOffset, int? gradeId)
+    public async Task<IEnumerable<ClassDto>> GetAllClassesAsync(int weekOffset, int? gradeId)
     {
         var weekDates = _currentWeekDates(weekOffset);
         var classesQuery = _dbContext.Classes.AsQueryable();
@@ -72,7 +72,65 @@ public class ClassesService : IClassesService
                 Teacher = c.SubjectTeacher.Teacher.Name,
                 FromTime = c.FromTime,
                 ToTime = c.Totime,
-                Date = c.Date
+                Date = c.Date,
+                AttendanceRegistered = (int)c.AttendanceRegistered
+            })
+            .OrderBy(c => c.Date).ThenBy(c => c.FromTime)
+            .ToListAsync();
+    }
+
+    public async Task<ClassAttendanceStatisticsDto> GetClassAttendanceStatisticsAsync(int classId)
+    {
+        var existedClass = await _dbContext.Classes
+            .Include(c => c.SubjectTeacher)
+            .ThenInclude(st => st.Subject)
+            .ThenInclude(s => s.Grade)
+            .Include(c => c.SubjectTeacher)
+            .ThenInclude(st => st.Teacher)
+            .SingleOrDefaultAsync(c => c.Id == classId);
+        if (existedClass is null)
+        {
+            throw new BadRequestException("Class not found");
+        }
+
+        AttendanceStatisticsDto attStats = (await _dbContext.AttendanceStatisticsDto
+            .FromSql($"EXEC GetClassAttendanceStats {classId}")
+            .ToListAsync())[0];
+        if (attStats is null)
+            throw new BadRequestException("Class attendance statistics not found");
+        return new ClassAttendanceStatisticsDto
+        {
+            Id = existedClass.Id,
+            GradeId = existedClass.SubjectTeacher.Subject.GradeId,
+            Grade = existedClass.SubjectTeacher.Subject.Grade.Name,
+            SubjectTeacherId = existedClass.SubjectTeacherId,
+            Subject = existedClass.SubjectTeacher.Subject.Name,
+            Teacher = existedClass.SubjectTeacher.Teacher.Name,
+            Date = existedClass.Date,
+            FromTime = existedClass.FromTime,
+            ToTime = existedClass.Totime,
+            AttendanceRegistered = (int)existedClass.AttendanceRegistered,
+            TotalStudents = attStats.TotalStudents,
+            Presents = attStats.Presents,
+            Absents = attStats.Absents
+        };
+    }
+
+    public async Task<IEnumerable<ClassDto>> GetTodayClassesAsync()
+    {
+        return await _dbContext.Classes.Where(c => c.Date == DateOnly.FromDateTime(DateTime.Today))
+            .Select(c => new ClassDto
+            {
+                Id = c.Id,
+                GradeId = c.SubjectTeacher.Subject.GradeId,
+                Grade = c.SubjectTeacher.Subject.Grade.Name,
+                SubjectTeacherId = c.SubjectTeacherId,
+                Subject = c.SubjectTeacher.Subject.Name,
+                Teacher = c.SubjectTeacher.Teacher.Name,
+                FromTime = c.FromTime,
+                ToTime = c.Totime,
+                Date = c.Date,
+                AttendanceRegistered = (int)c.AttendanceRegistered
             })
             .OrderBy(c => c.Date).ThenBy(c => c.FromTime)
             .ToListAsync();

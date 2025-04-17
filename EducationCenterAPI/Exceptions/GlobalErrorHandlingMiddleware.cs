@@ -49,7 +49,7 @@ public class GlobalErrorHandlingMiddleware
             {
                 Status = (int)HttpStatusCode.InternalServerError,
                 Title = "Internal Server Error",
-                Detail = "An unexpected error occurred.",
+                Detail = ex.Message,
             });
         }
 
