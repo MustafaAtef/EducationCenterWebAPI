@@ -96,50 +96,6 @@ The JWT settings are configured in `appsettings.json` under the `jwt` section:
 
 The database connection string is located in `appsettings.json` under the `ConnectionStrings` section.
 
-## API Endpoints
-
-The API provides the following endpoints:
-
-### Authentication
-
-- `POST /auth/login`: Authenticate a user and return a JWT.
-- `POST /auth/register`: Register a new user.
-
-### Students
-
-- `GET /students`: Retrieve a list of students.
-- `POST /students`: Create a new student.
-
-### Teachers
-
-- `GET /teachers`: Retrieve a list of teachers.
-- `POST /teachers`: Create a new teacher.
-
-### Classes
-
-- `GET /classes`: Retrieve a list of classes.
-- `POST /classes`: Create a new class.
-
-### Subjects
-
-- `GET /subjects`: Retrieve a list of subjects.
-- `POST /subjects`: Create a new subject.
-
-### Attendance
-
-- `GET /attendance`: Retrieve attendance records.
-- `POST /attendance`: Record attendance.
-
-### Grades
-
-- `GET /grades`: Retrieve grades.
-- `POST /grades`: Record grades.
-
-### Expenses
-
-- `GET /expenses`: Retrieve expenses.
-- `POST /expenses`: Record an expense.
-
 ## Error Handling
 
 The API uses a global error handling middleware to provide consistent error responses. Custom exceptions like `BadRequestException` and `UniqueException` are used to handle specific error scenarios.
