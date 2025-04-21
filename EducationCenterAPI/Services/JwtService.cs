@@ -1,4 +1,5 @@
-﻿using EducationCenterAPI.Dtos;
+﻿using EducationCenterAPI.Database.Entities;
+using EducationCenterAPI.Dtos;
 using EducationCenterAPI.Options;
 using EducationCenterAPI.ServiceContracts;
 using Microsoft.Extensions.Options;
@@ -19,13 +20,14 @@ namespace EducationCenterAPI.Services
             _jwtOptions = jwtOptions.Value;
         }
 
-        public JwtDto GenerateToken(string email, int userId)
+        public JwtDto GenerateToken(User user)
         {
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim("userId", userId.ToString()),
-                new Claim("email", email)
+                new Claim("userId", user.Id.ToString()),
+                new Claim("email", user.Email),
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));

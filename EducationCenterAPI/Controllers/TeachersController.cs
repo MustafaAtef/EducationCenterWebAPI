@@ -8,7 +8,7 @@ namespace EducationCenterAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Admin, Secretary")]
     public class TeachersController : ControllerBase
     {
         private readonly ITeachersService _teachersService;

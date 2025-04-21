@@ -9,4 +9,13 @@ public class User
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpirationDate { get; set; }
     public DateTime CreatedAt { get; set; }
+    public UserRoles Role { get; set; }
+}
+
+
+public enum UserRoles
+{
+    NotAssigned = 0,
+    Admin = 1,
+    Secretary = 2,
 }

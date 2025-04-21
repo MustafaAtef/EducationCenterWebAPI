@@ -16,7 +16,7 @@ namespace EducationCenterAPI.Controllers
         {
             _userService = userService;
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost("register")]
         public async Task<ActionResult<AuthenticatedUserDto>> RegisterUser(RegisterDto registerDto)
         {

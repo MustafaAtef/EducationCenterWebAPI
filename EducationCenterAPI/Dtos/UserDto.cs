@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Text.RegularExpressions;
 using EducationCenterAPI.CustomValidations;
+using EducationCenterAPI.Database.Entities;
 
 namespace EducationCenterAPI.Dtos;
 public class RegisterDto
@@ -19,6 +20,10 @@ public class RegisterDto
     [StringLength(11, ErrorMessage = "User phone maximum length is 11 numbers")]
     [PhoneNumber(ErrorMessage = "Invalid provided phone number")]
     public string Phone { get; set; }
+
+    [EnumValue(typeof(UserRoles), ErrorMessage = "Invalid provided role")]
+    [Required(ErrorMessage = "User role is required")]
+    public UserRoles? Role { get; set; } = null;
 }
 
 public class LoginDto

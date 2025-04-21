@@ -1,5 +1,6 @@
 using EducationCenterAPI.Dtos;
 using EducationCenterAPI.ServiceContracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +8,7 @@ namespace EducationCenterAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin, Secretary")]
     public class SubjectsWithTeachersController : ControllerBase
     {
         private readonly ISubjectsService _subjectsService;

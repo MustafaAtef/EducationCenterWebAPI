@@ -36,7 +36,7 @@ namespace EducationCenterAPI.Services
             var user = await _appDbContext.Users.SingleOrDefaultAsync(user => user.Email == loginDto.Email);
             if (user is null || !_passwordHasher.VerifyPassword(loginDto.Password, user.Password)) throw new BadRequestException("Invalid email or password");
 
-            var jwtData = _jwtService.GenerateToken(user.Email, user.Id);
+            var jwtData = _jwtService.GenerateToken(user);
             user.RefreshToken = jwtData.RefreshToken;
             user.RefreshTokenExpirationDate = jwtData.RefreshTokenExpirationDate;
             await _appDbContext.SaveChangesAsync();
@@ -74,7 +74,7 @@ namespace EducationCenterAPI.Services
 
             if (user is null || user.RefreshToken != refreshTokenDto.RefreshToken || user.RefreshTokenExpirationDate <= DateTime.Now) throw new BadRequestException("Invalid refresh token or token expired");
 
-            var jwtData = _jwtService.GenerateToken(user.Email, user.Id);
+            var jwtData = _jwtService.GenerateToken(user);
             user.RefreshToken = jwtData.RefreshToken;
             user.RefreshTokenExpirationDate = jwtData.RefreshTokenExpirationDate;
             await _appDbContext.SaveChangesAsync();
@@ -99,10 +99,11 @@ namespace EducationCenterAPI.Services
                 Name = registerDto.Name,
                 Password = _passwordHasher.HashPassword(registerDto.Password),
                 Phone = registerDto.Phone,
+                Role = registerDto.Role.Value,
             };
             _appDbContext.Users.Add(user);
 
-            var jwtData = _jwtService.GenerateToken(registerDto.Email, user.Id);
+            var jwtData = _jwtService.GenerateToken(user);
             user.RefreshToken = jwtData.RefreshToken;
             user.RefreshTokenExpirationDate = jwtData.RefreshTokenExpirationDate;
 

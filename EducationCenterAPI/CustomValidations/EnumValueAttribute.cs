@@ -7,9 +7,11 @@ public class EnumValueAttribute : ValidationAttribute
 {
 
     private Type _enumType;
-    public EnumValueAttribute(Type enumType)
+    private bool _isRequired;
+    public EnumValueAttribute(Type enumType, bool isRequired = false)
     {
         _enumType = enumType;
+        _isRequired = isRequired;
     }
     protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
     {
@@ -21,7 +23,11 @@ public class EnumValueAttribute : ValidationAttribute
             }
             return new ValidationResult(ErrorMessage ?? $"Invlaid {validationContext.MemberName} field value");
         }
-        return null;
+        if (_isRequired)
+        {
+            return new ValidationResult(ErrorMessage ?? $"{validationContext.MemberName} field is required");
+        }
+        return ValidationResult.Success;
     }
 
 }
