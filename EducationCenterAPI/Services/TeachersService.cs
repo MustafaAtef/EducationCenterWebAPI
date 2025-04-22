@@ -1,30 +1,27 @@
-using System;
 using System.Linq.Expressions;
-using EducationCenterAPI.Database;
 using EducationCenterAPI.Database.Entities;
 using EducationCenterAPI.Dtos;
 using EducationCenterAPI.Exceptions;
+using EducationCenterAPI.RepositoryContracts;
 using EducationCenterAPI.ServiceContracts;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
 
 namespace EducationCenterAPI.Services;
 
 public class TeachersService : ITeachersService
 {
-    private readonly AppDbContext _appDbContext;
-    public TeachersService(AppDbContext appDbContext)
+    private readonly IUnitOfWork _unitOfWork;
+    public TeachersService(IUnitOfWork unitOfWork)
     {
-        _appDbContext = appDbContext;
+        _unitOfWork = unitOfWork;
     }
     public async Task CreateTeacherAsync(CreateTeacherDto createTeacherDto)
     {
-        var existingTeacher = await _appDbContext.Teachers.SingleOrDefaultAsync(t => t.Email == createTeacherDto.Email);
+        var existingTeacher = await _unitOfWork.Teachers.FindAsync(t => t.Email == createTeacherDto.Email);
         if (existingTeacher != null)
         {
             throw new UniqueException("Teacher already exists.");
         }
-        var subjectsExist = await _appDbContext.Subjects.Where(s => createTeacherDto.Subjects.Contains(s.Id)).ToListAsync();
+        var subjectsExist = await _unitOfWork.Subjects.FindAllAsync(s => createTeacherDto.Subjects.Contains(s.Id));
         if (subjectsExist.Count != createTeacherDto.Subjects.Count)
         {
             throw new BadRequestException("Invalid subject id(s) provided.");
@@ -36,45 +33,46 @@ public class TeachersService : ITeachersService
             Phone = createTeacherDto.Phone,
             Subjects = subjectsExist,
         };
-        _appDbContext.Teachers.Add(teacher);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.Teachers.Add(teacher);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task<TeacherDto> GetTeacherByIdAsync(int id)
     {
-        var teacher = await _appDbContext.Teachers.Where(t => t.Id == id).Select(t => new TeacherDto
+        var teacher = await _unitOfWork.Teachers.FindAsync(t => t.Id == id, new string[] { "Subjects.Grade" });
+        if (teacher == null)
         {
-            Id = t.Id,
-            Name = t.Name,
-            Email = t.Email,
-            Phone = t.Phone,
-            CreatedAt = t.CreatedAt,
-            Teaches = t.Subjects.Select(s => new SubjectDto
+            throw new BadRequestException("Teacher not found.");
+        }
+        return new TeacherDto
+        {
+            Id = teacher.Id,
+            Name = teacher.Name,
+            Email = teacher.Email,
+            Phone = teacher.Phone,
+            CreatedAt = teacher.CreatedAt,
+            Teaches = teacher.Subjects.Select(s => new SubjectDto
             {
                 Id = s.Id,
                 Name = s.Name,
                 GradeId = s.Grade.Id,
                 Grade = s.Grade.Name
             }).ToList()
-        }).FirstOrDefaultAsync();
-
-        if (teacher == null)
-        {
-            throw new BadRequestException("Teacher not found.");
-        }
-        return teacher;
+        };
     }
 
     public async Task<PagedList<TeacherSalaryDto>> GetTeacherSalariesAsync(int teacherId, int page, int pageSize)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 12;
-        var teacher = await _appDbContext.Teachers.SingleOrDefaultAsync(t => t.Id == teacherId);
+        var teacher = await _unitOfWork.Teachers.FindAsync(t => t.Id == teacherId);
         if (teacher == null)
         {
             throw new BadRequestException("Teacher not found.");
         }
-        var teacherSalaries = _appDbContext.TeacherSalaries.Where(ts => ts.TeacherId == teacherId).Select(ts => new TeacherSalaryDto
+        var teacherSalaries = await _unitOfWork.TeacherSalaries.FindAllAsync(page, pageSize, ts => ts.TeacherId == teacherId, null, null, new string[] { "Teacher" });
+        var totalTeacherSalaries = await _unitOfWork.TeacherSalaries.CountAsync(ts => ts.TeacherId == teacherId);
+        return new PagedList<TeacherSalaryDto>(totalTeacherSalaries, pageSize, page, teacherSalaries.Select(ts => new TeacherSalaryDto
         {
             Id = ts.ExpenseId,
             Name = ts.Teacher.Name,
@@ -83,21 +81,26 @@ public class TeachersService : ITeachersService
             Paid = ts.Paid,
             Notes = ts.Notes,
             PaidAt = DateOnly.FromDateTime(ts.PaidAt),
-        });
-        return await PagedList<TeacherSalaryDto>.Create(teacherSalaries, page, pageSize);
+        }));
     }
 
-    public Task<PagedList<TeacherDto>> GetTeachersAsync(int page, int pageSize, string? searchTerm, string? sortBy, string? sortOrder, string? subject)
+    public async Task<PagedList<TeacherDto>> GetTeachersAsync(int page, int pageSize, string? searchTerm, string? sortBy, string? sortOrder, string? subject)
     {
-        var query = _appDbContext.Teachers.AsQueryable();
-        if (!string.IsNullOrEmpty(searchTerm))
+        Expression<Func<Teacher, bool>>? predicate = null;
+
+        if (!string.IsNullOrEmpty(searchTerm) && !string.IsNullOrEmpty(subject))
         {
-            query = query.Where(t => t.Name.Contains(searchTerm));
+            predicate = t => t.Name.Contains(searchTerm) && t.Subjects.Any(s => s.Name == subject);
         }
-        if (!string.IsNullOrEmpty(subject))
+        else if (!string.IsNullOrEmpty(searchTerm))
         {
-            query = query.Where(t => t.Subjects.Any(s => s.Name == subject));
+            predicate = t => t.Name.Contains(searchTerm);
         }
+        else if (!string.IsNullOrEmpty(subject))
+        {
+            predicate = t => t.Subjects.Any(s => s.Name == subject);
+        }
+
         Expression<Func<Teacher, object>> keySelector;
         switch (sortBy?.ToLower())
         {
@@ -111,16 +114,10 @@ public class TeachersService : ITeachersService
                 keySelector = t => t.CreatedAt;
                 break;
         }
-        if (sortOrder?.ToLower() == "asc")
-        {
-            query = query.OrderBy(keySelector);
-        }
-        else
-        {
-            query = query.OrderByDescending(keySelector);
-        }
 
-        return PagedList<TeacherDto>.Create(query.Select(t => new TeacherDto
+        var teachers = await _unitOfWork.Teachers.FindAllAsync(page, pageSize, predicate, keySelector, sortOrder, new string[] { "Subjects.Grade" });
+        var totalTeachers = await _unitOfWork.Teachers.CountAsync(predicate);
+        return new PagedList<TeacherDto>(totalTeachers, pageSize, page, teachers.Select(t => new TeacherDto
         {
             Id = t.Id,
             Name = t.Name,
@@ -134,15 +131,15 @@ public class TeachersService : ITeachersService
                 GradeId = s.Grade.Id,
                 Grade = s.Grade.Name
             }).ToList()
-        }), page, pageSize);
+        }));
     }
 
-    public Task<PagedList<TeacherSalaryDto>> GetTeachersSalariesAsync(int page, int pageSize, string? sortBy, string? sortOrder, string? fromDate, string? toDate)
+    public async Task<PagedList<TeacherSalaryDto>> GetTeachersSalariesAsync(int page, int pageSize, string? sortBy, string? sortOrder, string? fromDate, string? toDate)
     {
-        var teacherSalariesQuery = _appDbContext.TeacherSalaries.AsQueryable();
+        Expression<Func<TeacherSalary, bool>>? predicate = null;
         if (fromDate is not null && toDate is not null && DateOnly.TryParse(fromDate, out DateOnly parsedFromDate) && DateOnly.TryParse(toDate, out DateOnly parsedToDate))
         {
-            teacherSalariesQuery = teacherSalariesQuery.Where(ts => ts.PaidAt >= parsedFromDate.ToDateTime(new TimeOnly(0, 0)) && ts.PaidAt <= parsedToDate.ToDateTime(new TimeOnly(23, 59)));
+            predicate = ts => ts.PaidAt >= parsedFromDate.ToDateTime(new TimeOnly(0, 0)) && ts.PaidAt <= parsedToDate.ToDateTime(new TimeOnly(23, 59));
         }
         Expression<Func<TeacherSalary, object>> keySelector;
         switch (sortBy?.ToLower())
@@ -157,15 +154,9 @@ public class TeachersService : ITeachersService
                 keySelector = ts => ts.PaidAt;
                 break;
         }
-        if (sortOrder?.ToLower() == "asc")
-        {
-            teacherSalariesQuery = teacherSalariesQuery.OrderBy(keySelector);
-        }
-        else
-        {
-            teacherSalariesQuery = teacherSalariesQuery.OrderByDescending(keySelector);
-        }
-        return PagedList<TeacherSalaryDto>.Create(teacherSalariesQuery.Select(ts => new TeacherSalaryDto
+        var teachersSalaries = await _unitOfWork.TeacherSalaries.FindAllAsync(page, pageSize, predicate, keySelector, sortOrder, new string[] { "Teacher" });
+        var totalTeachersSalaries = await _unitOfWork.TeacherSalaries.CountAsync(predicate);
+        return new PagedList<TeacherSalaryDto>(totalTeachersSalaries, pageSize, page, teachersSalaries.Select(ts => new TeacherSalaryDto
         {
             Id = ts.ExpenseId,
             Name = ts.Teacher.Name,
@@ -174,17 +165,17 @@ public class TeachersService : ITeachersService
             Paid = ts.Paid,
             Notes = ts.Notes,
             PaidAt = DateOnly.FromDateTime(ts.PaidAt),
-        }), page, pageSize);
+        }));
     }
 
     public async Task PayTeacherSalaryAsync(PayTeacherSalaryDto payTeacherSalaryDto)
     {
-        var teacher = await _appDbContext.Teachers.SingleOrDefaultAsync(t => t.Id == payTeacherSalaryDto.TeacherId);
+        var teacher = await _unitOfWork.Teachers.FindAsync(t => t.Id == payTeacherSalaryDto.TeacherId);
         if (teacher == null)
         {
             throw new BadRequestException("Teacher not found.");
         }
-        var existingSalary = await _appDbContext.TeacherSalaries.SingleOrDefaultAsync(ts => ts.TeacherId == payTeacherSalaryDto.TeacherId && ts.Months == payTeacherSalaryDto.Months);
+        var existingSalary = await _unitOfWork.TeacherSalaries.FindAsync(ts => ts.TeacherId == payTeacherSalaryDto.TeacherId && ts.Months == payTeacherSalaryDto.Months);
         if (existingSalary != null)
         {
             throw new UniqueException("Salary already paid for this month.");
@@ -203,42 +194,42 @@ public class TeachersService : ITeachersService
             Notes = payTeacherSalaryDto.Notes,
             Paid = payTeacherSalaryDto.Paid.Value,
         };
-        _appDbContext.Expenses.Add(expense);
-        _appDbContext.TeacherSalaries.Add(salary);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.Expenses.Add(expense);
+        _unitOfWork.TeacherSalaries.Add(salary);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task UpdateTeacherAsync(UpdateTeacherDto updateTeacherDto)
     {
-        var existingTeacher = await _appDbContext.Teachers.SingleOrDefaultAsync(t => t.Id == updateTeacherDto.Id);
+        var existingTeacher = await _unitOfWork.Teachers.FindAsync(t => t.Id == updateTeacherDto.Id);
         if (existingTeacher == null)
         {
             throw new BadRequestException("Invalid teacher id provided.");
         }
-        var subjectsExist = await _appDbContext.Subjects.Where(s => updateTeacherDto.Subjects.Contains(s.Id)).ToListAsync();
+        var subjectsExist = await _unitOfWork.Subjects.FindAllAsync(s => updateTeacherDto.Subjects.Contains(s.Id));
         if (subjectsExist.Count != updateTeacherDto.Subjects.Count)
         {
             throw new BadRequestException("Invalid subject id(s) provided.");
         }
-        await _appDbContext.SubjectsTeachers.Where(st => st.TeachersId == existingTeacher.Id).ExecuteDeleteAsync();
+        await _unitOfWork.SubjectsTeachers.DeleteTeacherSubjets(existingTeacher.Id);
         existingTeacher.Name = updateTeacherDto.Name;
         existingTeacher.Email = updateTeacherDto.Email;
         existingTeacher.Phone = updateTeacherDto.Phone;
         existingTeacher.Subjects = subjectsExist;
-        _appDbContext.Teachers.Update(existingTeacher);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.Teachers.Update(existingTeacher);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task UpdateTeacherSalaryAsync(UpdateTeacherSalaryDto updateTeacherSalaryDto)
     {
-        var teacherSalary = await _appDbContext.TeacherSalaries.SingleOrDefaultAsync(ts => ts.ExpenseId == updateTeacherSalaryDto.Id);
+        var teacherSalary = await _unitOfWork.TeacherSalaries.FindAsync(ts => ts.ExpenseId == updateTeacherSalaryDto.Id);
         if (teacherSalary == null)
         {
             throw new BadRequestException("Invalid teacher salary id provided.");
         }
         if (teacherSalary.Months != updateTeacherSalaryDto.Months)
         {
-            var updatedMonths = await _appDbContext.TeacherSalaries.SingleOrDefaultAsync(ts => ts.Months == updateTeacherSalaryDto.Months && ts.TeacherId == teacherSalary.TeacherId);
+            var updatedMonths = await _unitOfWork.TeacherSalaries.FindAsync(ts => ts.Months == updateTeacherSalaryDto.Months && ts.TeacherId == teacherSalary.TeacherId);
             if (updatedMonths != null)
             {
                 throw new UniqueException("Salary already paid for this month.");
@@ -248,7 +239,7 @@ public class TeachersService : ITeachersService
         teacherSalary.Salary = updateTeacherSalaryDto.Amount.Value;
         teacherSalary.Paid = updateTeacherSalaryDto.Paid.Value;
         teacherSalary.Notes = updateTeacherSalaryDto.Notes;
-        _appDbContext.TeacherSalaries.Update(teacherSalary);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.TeacherSalaries.Update(teacherSalary);
+        await _unitOfWork.SaveChangesAsync();
     }
 }

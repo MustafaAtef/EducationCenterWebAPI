@@ -3,6 +3,7 @@ using EducationCenterAPI.Database;
 using EducationCenterAPI.Database.Entities;
 using EducationCenterAPI.Dtos;
 using EducationCenterAPI.Exceptions;
+using EducationCenterAPI.RepositoryContracts;
 using EducationCenterAPI.ServiceContracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,38 +11,38 @@ namespace EducationCenterAPI.Services;
 
 public class AttendanceService : IAttendanceService
 {
-    private readonly AppDbContext _appDbContext;
-    public AttendanceService(AppDbContext appDbContext)
+    private readonly IUnitOfWork _unitOfWork;
+    public AttendanceService(IUnitOfWork unitOfWork)
     {
-        _appDbContext = appDbContext;
+        _unitOfWork = unitOfWork;
     }
     public async Task<IEnumerable<ClassStudentDto>> GetAttendanceAsync(int classId)
     {
         //check if classId is valid
-        var existingClass = await _appDbContext.Classes.SingleOrDefaultAsync(c => c.Id == classId);
+        var existingClass = await _unitOfWork.Classes.FindAsync(c => c.Id == classId);
         if (existingClass == null)
         {
             throw new BadRequestException("Class not found");
         }
         //get all students in the class
-        return await _appDbContext.classStudentDto.FromSql($"EXEC GetClassStudentsWithAttendanceStatus {classId}").ToListAsync();
+        return await _unitOfWork.Classes.GetClassStudentsWithAttendanceStatusAsync(classId);
     }
 
     public async Task<IEnumerable<ClassStudentDto>> GetTodayAttendanceAsync()
     {
-        return await _appDbContext.classStudentDto.FromSql($"EXEC GetTodayClassesStudentsWithAttendanceStatus").ToListAsync();
+        return await _unitOfWork.Classes.GetTodayClassesStudentsWithAttendanceStatusAsync();
     }
 
     public async Task RegisterStudentAttendanceAsync(RegisterStudentAttendanceAsyncDto takeStudentAttendanceDto)
     {
         // check if the class exists
-        var existingClass = await _appDbContext.Classes.SingleOrDefaultAsync(c => c.Id == takeStudentAttendanceDto.ClassId);
+        var existingClass = await _unitOfWork.Classes.FindAsync(c => c.Id == takeStudentAttendanceDto.ClassId);
         if (existingClass == null)
         {
             throw new BadRequestException("Class not found");
         }
         // check if teh student exists
-        var existingStudent = await _appDbContext.Students.Include(std => std.StudentSubjectsTeachers).SingleOrDefaultAsync(s => s.Id == takeStudentAttendanceDto.StudentId);
+        var existingStudent = await _unitOfWork.Students.FindAsync(s => s.Id == takeStudentAttendanceDto.StudentId, new string[] { "StudentSubjectsTeachers" });
         if (existingStudent == null)
         {
             throw new BadRequestException("Student not found");
@@ -51,17 +52,17 @@ public class AttendanceService : IAttendanceService
         {
             throw new BadRequestException("This student is not in the choosen class");
         }
-        var existedAttendance = await _appDbContext.Attendances.SingleOrDefaultAsync(a => a.ClassId == existingClass.Id && a.StudentId == existingStudent.Id);
+        var existedAttendance = await _unitOfWork.Attendances.FindAsync(a => a.ClassId == existingClass.Id && a.StudentId == existingStudent.Id);
         if (existedAttendance != null)
             existedAttendance.IsPresent = takeStudentAttendanceDto.IsPresent.Value == 1;
         else
-            _appDbContext.Attendances.Add(new()
+            _unitOfWork.Attendances.Add(new()
             {
                 Class = existingClass,
                 Student = existingStudent,
                 IsPresent = takeStudentAttendanceDto.IsPresent.Value == 1
             });
         existingClass.AttendanceRegistered = AttendanceRegistered.Registered;
-        await _appDbContext.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 }

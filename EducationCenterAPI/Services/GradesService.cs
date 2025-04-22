@@ -1,34 +1,31 @@
-﻿using EducationCenterAPI.Database;
-using EducationCenterAPI.Dtos;
+﻿using EducationCenterAPI.Dtos;
 using EducationCenterAPI.Exceptions;
+using EducationCenterAPI.RepositoryContracts;
 using EducationCenterAPI.ServiceContracts;
-using Microsoft.EntityFrameworkCore;
 
-namespace EducationCenterAPI.Services
+namespace EducationCenterAPI.Services;
+
+public class GradesService : IGradesService
 {
-    public class GradesService : IGradesService
+    private readonly IUnitOfWork _unitOfWork;
+    public GradesService(IUnitOfWork unitOfWork)
     {
-        private readonly AppDbContext _appDbContext;
+        _unitOfWork = unitOfWork;
+    }
+    public async Task CreateGradeAsync(CreateGradeDto createGradeDto)
+    {
+        var grade = await _unitOfWork.Grades.FindAsync(g => g.Name == createGradeDto.Name);
+        if (grade is not null) throw new UniqueException("Grade already exists");
+        _unitOfWork.Grades.Add(new() { Name = createGradeDto.Name });
+        await _unitOfWork.SaveChangesAsync();
+    }
 
-        public GradesService(AppDbContext appDbContext)
+    public async Task<IEnumerable<GradeDto>> GetAllGradesAsync()
+    {
+        return (await _unitOfWork.Grades.GetAllAsync()).Select(g => new GradeDto
         {
-            _appDbContext = appDbContext;
-        }
-        public async Task CreateGradeAsync(CreateGradeDto createGradeDto)
-        {
-            var grade = await _appDbContext.Grades.SingleOrDefaultAsync(g => g.Name == createGradeDto.Name);
-            if (grade is not null) throw new UniqueException("Grade already exists");
-            _appDbContext.Grades.Add(new() { Name = createGradeDto.Name });
-            await _appDbContext.SaveChangesAsync();
-        }
-
-        public async Task<IEnumerable<GradeDto>> GetAllGradesAsync()
-        {
-            return await _appDbContext.Grades.Select(g => new GradeDto
-            {
-                Id = g.Id,
-                Name = g.Name
-            }).ToListAsync();
-        }
+            Id = g.Id,
+            Name = g.Name
+        });
     }
 }

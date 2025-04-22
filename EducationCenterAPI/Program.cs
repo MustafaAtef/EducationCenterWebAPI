@@ -1,6 +1,8 @@
 using EducationCenterAPI.Database;
 using EducationCenterAPI.Exceptions;
 using EducationCenterAPI.Options;
+using EducationCenterAPI.Repositories;
+using EducationCenterAPI.RepositoryContracts;
 using EducationCenterAPI.ServiceContracts;
 using EducationCenterAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -24,6 +26,7 @@ builder.Services.AddTransient<IClassesService, ClassesService>();
 builder.Services.AddTransient<IAttendanceService, AttendanceService>();
 builder.Services.AddTransient<IExpenseService, ExpenseService>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 var jwtOptions = builder.Configuration.GetSection("jwt").Get<JwtOptions>();
 builder.Services.AddAuthentication().AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>

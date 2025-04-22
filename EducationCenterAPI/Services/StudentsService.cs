@@ -1,33 +1,39 @@
 using System.Linq.Expressions;
-using EducationCenterAPI.Database;
 using EducationCenterAPI.Database.Entities;
 using EducationCenterAPI.Dtos;
 using EducationCenterAPI.Exceptions;
+using EducationCenterAPI.RepositoryContracts;
 using EducationCenterAPI.ServiceContracts;
-using Microsoft.EntityFrameworkCore;
 
 namespace EducationCenterAPI.Services;
 
 public class StudentsService : IStudentsService
 {
-    private readonly AppDbContext _appDbContext;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public StudentsService(AppDbContext appDbContext)
+
+    public StudentsService(IUnitOfWork unitOfWork)
     {
-        _appDbContext = appDbContext;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<PagedList<StudentDto>> GetAllStudentsAsync(int page, int pageSize, string? searchItem, string? sortBy, string? sortOrder, int? gradeId)
     {
-        var studentsQuery = _appDbContext.Students.AsQueryable();
-        if (!string.IsNullOrEmpty(searchItem))
+        Expression<Func<Student, bool>>? predicate = null;
+
+        if (!string.IsNullOrEmpty(searchItem) && gradeId is not null)
         {
-            studentsQuery = studentsQuery.Where(s => s.Name.Contains(searchItem));
+            predicate = s => s.Name.Contains(searchItem) && s.GradeId == gradeId;
         }
-        if (gradeId is not null)
+        else if (!string.IsNullOrEmpty(searchItem))
         {
-            studentsQuery = studentsQuery.Where(s => s.GradeId == gradeId);
+            predicate = s => s.Name.Contains(searchItem);
         }
+        else if (gradeId is not null)
+        {
+            predicate = s => s.GradeId == gradeId;
+        }
+
         Expression<Func<Student, object>> keySelector;
         switch (sortBy?.ToLower())
         {
@@ -41,16 +47,9 @@ public class StudentsService : IStudentsService
                 keySelector = s => s.CreatedAt;
                 break;
         }
-        if (sortOrder?.ToLower() == "asc")
-        {
-            studentsQuery = studentsQuery.OrderBy(keySelector);
-        }
-        else
-        {
-            studentsQuery = studentsQuery.OrderByDescending(keySelector);
-        }
-
-        return await PagedList<StudentDto>.Create(studentsQuery.Select(std =>
+        var students = await _unitOfWork.Students.FindAllAsync(page, pageSize, predicate, keySelector, sortOrder, new string[] { "Grade", "StudentSubjectsTeachers.SubjectTeacher.Subject", "StudentSubjectsTeachers.SubjectTeacher.Teacher" });
+        var totalStudents = await _unitOfWork.Students.CountAsync(predicate);
+        return new PagedList<StudentDto>(totalStudents, pageSize, page, students.Select(std =>
             new StudentDto
             {
                 Id = std.Id,
@@ -66,48 +65,47 @@ public class StudentsService : IStudentsService
                     Name = st.SubjectTeacher.Subject.Name,
                     Teacher = st.SubjectTeacher.Teacher.Name,
                 }).ToList()
-            }), page, pageSize);
+            }));
     }
 
     public async Task<StudentDto> GetStudentByIdAsync(int id)
     {
-        var student = await _appDbContext.Students.Where(std => std.Id == id).Select(std => new StudentDto()
+        var student = await _unitOfWork.Students.FindAsync(std => std.Id == id, new string[] { "Grade", "StudentSubjectsTeachers.Subject", "StudentSubjectsTeachers.Teacher" });
+        if (student is null)
         {
-            Id = std.Id,
-            Name = std.Name,
-            Email = std.Email,
-            Phone = std.Phone,
-            GradeId = std.GradeId,
-            Grade = std.Grade.Name,
-            CreatedAt = std.CreatedAt,
-            Subjects = std.StudentSubjectsTeachers.Select(st => new SubjectWithTeacherDto
+            throw new BadRequestException("Student does not exist");
+        }
+        return new StudentDto()
+        {
+            Id = student.Id,
+            Name = student.Name,
+            Email = student.Email,
+            Phone = student.Phone,
+            GradeId = student.GradeId,
+            Grade = student.Grade.Name,
+            CreatedAt = student.CreatedAt,
+            Subjects = student.StudentSubjectsTeachers.Select(st => new SubjectWithTeacherDto
             {
                 Id = st.SubjectTeacher.Id,
                 Name = st.SubjectTeacher.Subject.Name,
                 Teacher = st.SubjectTeacher.Teacher.Name,
             }).ToList()
-        }).FirstOrDefaultAsync();
-
-        if (student is null)
-        {
-            throw new BadRequestException("Student does not exist");
-        }
-        return student;
+        };
     }
 
     public async Task CreateStudentAsync(CreateStudentDto createStudentDto)
     {
-        var existingStudent = await _appDbContext.Students.SingleOrDefaultAsync(std => std.Email == createStudentDto.Email);
+        var existingStudent = await _unitOfWork.Students.FindAsync(std => std.Email == createStudentDto.Email);
         if (existingStudent is not null)
         {
             throw new UniqueException("Email already exists");
         }
-        var existingGrade = await _appDbContext.Grades.SingleOrDefaultAsync(g => g.Id == createStudentDto.GradeId);
+        var existingGrade = await _unitOfWork.Grades.FindAsync(g => g.Id == createStudentDto.GradeId);
         if (existingGrade is null)
         {
             throw new BadRequestException("Grade does not exist");
         }
-        var subjectsTeachersExisted = await _appDbContext.SubjectsTeachers.Where(st => createStudentDto.SubjectIds.Contains(st.Id)).ToListAsync();
+        var subjectsTeachersExisted = await _unitOfWork.SubjectsTeachers.FindAllAsync(st => createStudentDto.SubjectIds.Contains(st.Id));
         if (subjectsTeachersExisted.Count != createStudentDto.SubjectIds.Count)
         {
             throw new BadRequestException("Some subjects do not exist");
@@ -123,29 +121,29 @@ public class StudentsService : IStudentsService
                 SubjectTeacher = st
             }).ToList(),
         };
-        _appDbContext.Students.Add(student);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.Students.Add(student);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task UpdateStudentAsync(UpdateStudentDto updateStudentDto)
     {
-        var existedStudent = await _appDbContext.Students.SingleOrDefaultAsync(std => std.Id == updateStudentDto.Id);
+        var existedStudent = await _unitOfWork.Students.FindAsync(std => std.Id == updateStudentDto.Id);
         if (existedStudent is null)
         {
             throw new BadRequestException("Student does not exist");
         }
-        var existedGrade = await _appDbContext.Grades.SingleOrDefaultAsync(g => g.Id == updateStudentDto.GradeId);
+        var existedGrade = await _unitOfWork.Grades.FindAsync(g => g.Id == updateStudentDto.GradeId);
         if (existedGrade is null)
         {
             throw new BadRequestException("Grade does not exist");
         }
-        var existedSubjectsTeachers = await _appDbContext.SubjectsTeachers.Where(st => updateStudentDto.SubjectIds.Contains(st.Id)).ToListAsync();
+        var existedSubjectsTeachers = await _unitOfWork.SubjectsTeachers.FindAllAsync(st => updateStudentDto.SubjectIds.Contains(st.Id));
         if (existedSubjectsTeachers.Count != updateStudentDto.SubjectIds.Count)
         {
             throw new BadRequestException("Some subjects do not exist");
         }
 
-        await _appDbContext.StudentSubjectsTeachers.Where(sst => sst.StudentId == updateStudentDto.Id).ExecuteDeleteAsync();
+        await _unitOfWork.StudentSubjectsTeachers.DeleteByStudentId(updateStudentDto.Id);
 
         existedStudent.Name = updateStudentDto.Name;
         existedStudent.Phone = updateStudentDto.Phone;
@@ -155,18 +153,18 @@ public class StudentsService : IStudentsService
             SubjectTeacher = st
         }).ToList();
 
-        _appDbContext.Students.Update(existedStudent);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.Students.Update(existedStudent);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task PayStudentFeesAsync(PayStudentFeesDto payStudentFeesDto)
     {
-        var student = await _appDbContext.Students.SingleOrDefaultAsync(std => std.Id == payStudentFeesDto.StudentId);
+        var student = await _unitOfWork.Students.FindAsync(std => std.Id == payStudentFeesDto.StudentId);
         if (student is null)
         {
             throw new BadRequestException("Student does not exist");
         }
-        var studentFees = await _appDbContext.StudentFees.SingleOrDefaultAsync(sf => sf.StudentId == payStudentFeesDto.StudentId && sf.Months == payStudentFeesDto.Months);
+        var studentFees = await _unitOfWork.StudentFees.FindAsync(sf => sf.StudentId == payStudentFeesDto.StudentId && sf.Months == payStudentFeesDto.Months);
         if (studentFees is not null)
         {
             throw new BadRequestException("Student fees already paid for this month");
@@ -185,17 +183,17 @@ public class StudentsService : IStudentsService
             Student = student,
             Expense = expense,
         };
-        _appDbContext.Expenses.Add(expense);
-        _appDbContext.StudentFees.Add(studentFee);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.Expenses.Add(expense);
+        _unitOfWork.StudentFees.Add(studentFee);
+        await _unitOfWork.SaveChangesAsync();
     }
 
-    public Task<PagedList<StudentFeeDto>> GetStudentsFeesAsync(int page, int pageSize, string? sortBy, string? sortOrder, string? fromDate, string? toDate)
+    public async Task<PagedList<StudentFeeDto>> GetStudentsFeesAsync(int page, int pageSize, string? sortBy, string? sortOrder, string? fromDate, string? toDate)
     {
-        var studentFeesQuery = _appDbContext.StudentFees.AsQueryable();
-        if (fromDate is not null && toDate is not null && DateOnly.TryParse(fromDate, out DateOnly parsedFromDate) && DateOnly.TryParse(toDate, out DateOnly parsedToDate))
+        Expression<Func<StudentFee, bool>>? predicate = null;
+        if (!string.IsNullOrEmpty(fromDate) && !string.IsNullOrEmpty(toDate) && DateOnly.TryParse(fromDate, out DateOnly parsedFromDate) && DateOnly.TryParse(toDate, out DateOnly parsedToDate))
         {
-            studentFeesQuery = studentFeesQuery.Where(sf => sf.PaidAt >= parsedFromDate.ToDateTime(new TimeOnly(0, 0)) && sf.PaidAt <= parsedToDate.ToDateTime(new TimeOnly(23, 59)));
+            predicate = sf => sf.PaidAt >= parsedFromDate.ToDateTime(new TimeOnly(0, 0)) && sf.PaidAt <= parsedToDate.ToDateTime(new TimeOnly(23, 59));
         }
         Expression<Func<StudentFee, object>> keySelector;
         switch (sortBy?.ToLower())
@@ -210,16 +208,9 @@ public class StudentsService : IStudentsService
                 keySelector = sf => sf.PaidAt;
                 break;
         }
-        if (sortOrder?.ToLower() == "asc")
-        {
-            studentFeesQuery = studentFeesQuery.OrderBy(keySelector);
-        }
-        else
-        {
-            studentFeesQuery = studentFeesQuery.OrderByDescending(keySelector);
-        }
-
-        return PagedList<StudentFeeDto>.Create(studentFeesQuery.Select(sf => new StudentFeeDto()
+        var studentFees = await _unitOfWork.StudentFees.FindAllAsync(page, pageSize, predicate, keySelector, sortOrder, new string[] { "Student.Grade" });
+        var totalStudentFees = await _unitOfWork.StudentFees.CountAsync(predicate);
+        return new PagedList<StudentFeeDto>(totalStudentFees, pageSize, page, studentFees.Select(sf => new StudentFeeDto()
         {
             Id = sf.ExpenseId,
             Name = sf.Student.Name,
@@ -229,19 +220,21 @@ public class StudentsService : IStudentsService
             Paid = sf.Paid,
             Notes = sf.Notes,
             PaidAt = sf.PaidAt,
-        }), page, pageSize);
+        }));
     }
 
     public async Task<PagedList<StudentFeeDto>> GetStudentFeesAsync(int studentId, int page, int pageSize)
     {
         if (page == 0) page = 1;
         if (pageSize == 0) pageSize = 12;
-        var student = await _appDbContext.Students.SingleOrDefaultAsync(std => std.Id == studentId);
+        var student = await _unitOfWork.Students.FindAsync(std => std.Id == studentId);
         if (student is null)
         {
             throw new BadRequestException("Student does not exist");
         }
-        var studentFeesQuery = _appDbContext.StudentFees.Where(sf => sf.StudentId == studentId).Select(sf => new StudentFeeDto()
+        var studentFees = await _unitOfWork.StudentFees.FindAllAsync(page, pageSize, sf => sf.StudentId == studentId, sf => sf.PaidAt, "desc", new string[] { "Student.Grade" });
+        var totalStudentFees = await _unitOfWork.StudentFees.CountAsync(sf => sf.StudentId == studentId);
+        return new PagedList<StudentFeeDto>(totalStudentFees, pageSize, page, studentFees.Select(sf => new StudentFeeDto()
         {
             Id = sf.ExpenseId,
             Name = sf.Student.Name,
@@ -251,20 +244,19 @@ public class StudentsService : IStudentsService
             Paid = sf.Paid,
             Notes = sf.Notes,
             PaidAt = sf.PaidAt,
-        }).OrderByDescending(sf => sf.PaidAt);
-        return await PagedList<StudentFeeDto>.Create(studentFeesQuery, page, pageSize);
+        }));
     }
 
     public async Task UpdateStudentFeesAsync(UpdateStudentFeesDto updateStudentFeesDto)
     {
-        var studentFee = await _appDbContext.StudentFees.SingleOrDefaultAsync(sf => sf.ExpenseId == updateStudentFeesDto.Id);
+        var studentFee = await _unitOfWork.StudentFees.FindAsync(sf => sf.ExpenseId == updateStudentFeesDto.Id);
         if (studentFee is null)
         {
             throw new BadRequestException("Student fee does not exist");
         }
         if (studentFee.Months != updateStudentFeesDto.Months)
         {
-            var updatedMonths = await _appDbContext.StudentFees.SingleOrDefaultAsync(sf => sf.StudentId == studentFee.StudentId && sf.Months == updateStudentFeesDto.Months.Value);
+            var updatedMonths = await _unitOfWork.StudentFees.FindAsync(sf => sf.StudentId == studentFee.StudentId && sf.Months == updateStudentFeesDto.Months.Value);
             if (updatedMonths is not null)
             {
                 throw new BadRequestException("Student fees already paid for this month");
@@ -274,7 +266,7 @@ public class StudentsService : IStudentsService
         studentFee.Paid = updateStudentFeesDto.Paid.Value;
         studentFee.Months = updateStudentFeesDto.Months.Value;
         studentFee.Notes = updateStudentFeesDto.Notes;
-        _appDbContext.StudentFees.Update(studentFee);
-        await _appDbContext.SaveChangesAsync();
+        _unitOfWork.StudentFees.Update(studentFee);
+        await _unitOfWork.SaveChangesAsync();
     }
 }
