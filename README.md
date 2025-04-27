@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Education Center API is a backend service designed to manage various aspects of an education center. It provides endpoints for managing students, teachers, classes, subjects, attendance, grades, expenses, and user authentication. The API is built using .NET 8.0 and follows a modular architecture with services, controllers, and database entities.
+The Education Center API is a backend service designed to manage various aspects of an education center. It provides endpoints for managing students, teachers, classes, subjects, attendance, grades, expenses, and user authentication. Built following Clean Architecture principles, it ensures scalability, maintainability, and testability.
 
 ## Features
 
@@ -20,86 +20,33 @@ The Education Center API is a backend service designed to manage various aspects
 The project is organized as follows:
 
 ```
-EducationCenterAPI/
-├── Controllers/          # API controllers for handling HTTP requests
-├── CustomValidations/    # Custom validation attributes
-├── Database/             # Database context and entity models
-├── Dtos/                 # Data Transfer Objects
-├── Exceptions/           # Custom exception classes and middleware
-├── Options/              # Configuration options (e.g., JWT settings)
-├── ServiceContracts/     # Interface definitions for services
-├── Services/             # Service implementations
-├── appsettings.json      # Application configuration
-├── Program.cs            # Application entry point
+EducationCenter/
+├── Src/
+│   ├── EducationCenter.Application/
+│   │   ├── CustomValidations/    # Custom validation attributes
+│   │   ├── Dtos/                 # Data Transfer Objects
+│   │   ├── ServiceContracts/     # Interface definitions for services
+│   │   ├── Services/             # Service implementations
+│   ├── EducationCenter.Core/
+│   │   ├── Entities/             # Core entity models
+│   │   ├── Enumerations/         # Enumerations used in the application
+│   │   ├── Exceptions/           # Custom exception classes
+│   │   ├── RepositoryContracts/  # Repository interface definitions
+│   ├── EducationCenter.Infrastructure/
+│   │   ├── Auth/                 # Authentication-related logic
+│   │   ├── Database/             # Database context and migrations
+│   │   ├── Repositories/         # Repository implementations
+│   ├── EducationCenter.WebApi/
+│   │   ├── Controllers/          # API controllers for handling HTTP requests
+│   │   ├── Middlewares/          # Middleware for request handling
+│   │   ├── appsettings.json      # Application configuration
+│   │   ├── Program.cs            # Application entry point
+├── EducationCenter.sln           # Solution file
 ```
 
 ## Technologies Used
 
 - **Framework**: .NET 8.0
-- **Database**: Entity Framework Core
+- **Database ORM**: Entity Framework Core
 - **Authentication**: JWT (JSON Web Tokens)
 - **Dependency Injection**: Built-in .NET DI container
-
-## Setup Instructions
-
-### Prerequisites
-
-- .NET SDK 8.0 or later
-- SQL Server (or any compatible database)
-
-### Steps
-
-1. Clone the repository:
-
-   ```bash
-   git clone <repository-url>
-   cd EducationCenter
-   ```
-
-2. Update the database connection string in `appsettings.json`:
-
-   ```json
-   "ConnectionStrings": {
-       "DefaultConnection": "<your-database-connection-string>"
-   }
-   ```
-
-3. Apply database migrations:
-
-   ```bash
-   dotnet ef database update
-   ```
-
-4. Run the application:
-
-   ```bash
-   dotnet run --project EducationCenterAPI
-   ```
-
-5. Access the API at `https://localhost:5001` (or the configured port).
-
-## Key Configuration
-
-### JWT Settings
-
-The JWT settings are configured in `appsettings.json` under the `jwt` section:
-
-```json
-"jwt": {
-    "Issuer": "YourIssuer",
-    "Audience": "YourAudience",
-    "SigningKey": "YourSecretKey"
-}
-```
-
-### Database Configuration
-
-The database connection string is located in `appsettings.json` under the `ConnectionStrings` section.
-
-## Error Handling
-
-The API uses a global error handling middleware to provide consistent error responses. Custom exceptions like `BadRequestException` and `UniqueException` are used to handle specific error scenarios.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
