@@ -49,4 +49,5 @@ EducationCenter/
 - **Framework**: .NET 8.0
 - **Database ORM**: Entity Framework Core
 - **Authentication**: JWT (JSON Web Tokens)
+- **API Documentation**: Swagger/OpenAPI
 - **Dependency Injection**: Built-in .NET DI container

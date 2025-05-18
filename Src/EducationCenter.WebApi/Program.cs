@@ -82,13 +82,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(dpb =>
     {
-        dpb.WithOrigins("http://localhost:5000")
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-    options.AddPolicy("AllowAll", builder =>
-    {
-        builder.AllowAnyOrigin()
+        dpb.AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
