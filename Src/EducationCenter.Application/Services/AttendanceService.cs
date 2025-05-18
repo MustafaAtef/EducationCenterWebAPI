@@ -32,7 +32,7 @@ public class AttendanceService : IAttendanceService
         return await _unitOfWork.Classes.GetTodayClassesStudentsWithAttendanceStatusAsync();
     }
 
-    public async Task RegisterStudentAttendanceAsync(RegisterStudentAttendanceAsyncDto takeStudentAttendanceDto)
+    public async Task RegisterStudentAttendanceAsync(RegisterStudentAttendanceDto takeStudentAttendanceDto)
     {
         // check if the class exists
         var existingClass = await _unitOfWork.Classes.FindAsync(c => c.Id == takeStudentAttendanceDto.ClassId);

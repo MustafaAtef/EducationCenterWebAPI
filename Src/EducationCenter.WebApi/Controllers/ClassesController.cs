@@ -70,10 +70,10 @@ public class ClassesController : ControllerBase
     }
 
     [HttpPost("{classId}/attendance")]
-    public async Task<ActionResult> RegisterStudentAttendanceAsync(int classId, RegisterStudentAttendanceAsyncDto RegisterStudentAttendanceAsyncDto)
+    public async Task<ActionResult> RegisterStudentAttendanceAsync(int classId, RegisterStudentAttendanceDto RegisterStudentAttendanceDto)
     {
-        RegisterStudentAttendanceAsyncDto.ClassId = classId;
-        await _attendanceService.RegisterStudentAttendanceAsync(RegisterStudentAttendanceAsyncDto);
+        RegisterStudentAttendanceDto.ClassId = classId;
+        await _attendanceService.RegisterStudentAttendanceAsync(RegisterStudentAttendanceDto);
         return Ok();
     }
 }

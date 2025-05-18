@@ -124,6 +124,7 @@ public class TeacherSalaryDto
 
 public class PayOtherExpenseDto
 {
+    [Required(ErrorMessage = "Expense amount is required")]
     public decimal Amount { get; set; }
     public string Notes { get; set; } = string.Empty;
 }
@@ -132,6 +133,7 @@ public class UpdateOtherExpenseDto
 {
 
     public int Id { get; set; }
+    [Required(ErrorMessage = "Expense amount is required")]
     public decimal Amount { get; set; }
     public string Notes { get; set; } = string.Empty;
 }
