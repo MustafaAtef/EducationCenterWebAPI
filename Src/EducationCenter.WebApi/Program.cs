@@ -9,10 +9,16 @@ using EducationCenterAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Reflection;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddMvcOptions(options =>
+{
+    options.Filters.Add(new ProducesAttribute("application/json"));
+    options.Filters.Add(new ConsumesAttribute("application/json"));
+});
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("jwt"));
@@ -33,7 +39,7 @@ var jwtOptions = builder.Configuration.GetSection("jwt").Get<JwtOptions>();
 builder.Services.AddAuthentication().AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
     if (jwtOptions is null) throw new Exception();
-    // save the authentication token to authintication properties so it can be accessed from httpContext object
+    // save the authentication token to authentication properties so it can be accessed from httpContext object
     options.SaveToken = true;
     options.MapInboundClaims = false;
     options.TokenValidationParameters = new TokenValidationParameters()
@@ -50,6 +56,30 @@ builder.Services.AddAuthentication().AddJwtBearer(JwtBearerDefaults.Authenticati
     };
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+    c.SwaggerDoc("v1", new() { Title = "EducationCenterAPI", Version = "v1" });
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(dpb =>
+    {
+        dpb.WithOrigins("http://localhost:5000")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -58,8 +88,17 @@ app.UseGlobalErrorHandling();
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.UseCors();
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "EducationCenterAPI v1"));
+}
+
+app.UseAuthentication();
+
+app.UseAuthorization();
 
 app.MapControllers();
 
